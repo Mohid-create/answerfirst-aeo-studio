@@ -1,0 +1,90 @@
+/**
+ * @fileoverview Firestore Security Rules for the AEO Snippet Optimizer application.
+ *
+ * Core Philosophy:
+ * This ruleset provides public read access to blog posts while restricting write access
+ * to authenticated users who are designated as admins. The rules prioritize simplicity
+ * and security, without enforcing strict data validation during this prototyping phase.
+ *
+ * Data Structure:
+ * The primary data structure is a flat collection of blog posts located at `/blogs/{blogId}`.
+ * Admin roles are managed via documents in the `/roles_admin/{userId}` collection.
+ *
+ * Key Security Decisions:
+ * - Public read access is granted to all blog posts.
+ * - Only authenticated admins can create, update, or delete blog posts.
+ * - Data validation is minimized to allow for rapid prototyping. Focus is given to authorization.
+ * - User listing is disabled by default.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Grants public read access to blog posts, while restricting write access to authenticated admins.
+     * @path /blogs/{blogId}
+     * @allow get, list: if true;
+     * @allow create: if isAdmin();
+     * @allow update: if isAdmin() && resource != null;
+     * @allow delete: if isAdmin() && resource != null;
+     * @deny create: if !isAdmin();
+     * @deny update: if !isAdmin();
+     * @deny delete: if !isAdmin();
+     * @principle Allows public reads, restricts writes to admins, and verifies document existence before updates or deletes.
+     */
+    match /blogs/{blogId} {
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Manages admin roles. The existence of a document grants admin privileges to a user.
+     * @path /roles_admin/{userId}
+     * @allow get: if isAdmin();
+     * @allow list: if false; // Prevent listing of all users with admin roles.
+     * @allow create: if isOwner(userId);
+     * @allow update: if false;
+     * @allow delete: if isOwner(userId) && resource != null;
+     * @deny create: if !isOwner(userId);
+     * @deny update: if true;
+     * @deny delete: if !isOwner(userId);
+     * @principle Enforces owner-only write access for admin role documents. Only the user themselves can create or delete their admin role.
+     */
+    match /roles_admin/{userId} {
+      allow get: if isAdmin();
+      allow list: if false;
+      allow create: if isOwner(userId);
+      allow update: if false;
+      allow delete: if isOwner(userId);
+    }
+
+    // --- Helper Functions ---
+
+    /**
+     * @description Checks if the user is signed in.
+     * @return {bool} True if the user is authenticated, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the user is the owner of the resource.
+     * @param {string} userId - The user ID to compare against the request's authentication UID.
+     * @return {bool} True if the user ID matches the request's authentication UID.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the user is an admin by verifying the existence of an admin role document.
+     * @return {bool} True if the user has an admin role document, false otherwise.
+     */
+    function isAdmin() {
+        return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+  }
+}

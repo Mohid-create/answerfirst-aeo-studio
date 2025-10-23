@@ -1,0 +1,105 @@
+{
+  "entities": {
+    "Blog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Blog",
+      "type": "object",
+      "description": "Represents a blog post within the AEO Snippet Optimizer application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the blog post. (Primary Key)"
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the blog post."
+        },
+        "slug": {
+          "type": "string",
+          "description": "The URL-friendly slug of the blog post, used for SEO-friendly URLs."
+        },
+        "author": {
+          "type": "string",
+          "description": "The author of the blog post."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date and time the blog post was created, stored as an ISO 8601 string.",
+          "format": "date-time"
+        },
+        "excerpt": {
+          "type": "string",
+          "description": "A short excerpt or summary of the blog post."
+        },
+        "content": {
+          "type": "string",
+          "description": "The full content of the blog post, stored as Markdown or HTML."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the featured image for the blog post.",
+          "format": "uri"
+        },
+        "tags": {
+          "type": "array",
+          "description": "An array of tags associated with the blog post.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "slug",
+        "author",
+        "createdAt",
+        "excerpt",
+        "content"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/blogs/{blogId}",
+        "definition": {
+          "entityName": "Blog",
+          "schema": {
+            "$ref": "#/backend/entities/Blog"
+          },
+          "description": "Stores blog post data. Includes fields for title, slug, author, creation date, excerpt, content, image URL, and tags.",
+          "params": [
+            {
+              "name": "blogId",
+              "description": "Unique identifier for the blog post."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{userId}",
+        "definition": {
+          "entityName": "adminRole",
+          "schema": {
+            "$ref": "#/backend/entities/adminRole"
+          },
+          "description": "Documents in this collection signify that the user is an admin. Existence of the document grants admin privileges.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support a dynamic blog section with SEO optimization, focusing on simplicity, security, and scalability.  The primary collection is `blogs`, which stores the blog post data.  No subcollections are used in this initial design to keep the structure simple and improve query performance.\n\n**Authorization Independence:**  Since there's no hierarchical data or user-specific private data involved in the initial requirements (no private drafts, for example), we don't need to denormalize authorization data. If, in a future iteration, features like drafts or user-specific blog access controls are implemented, denormalization of authorization context (like ownerId or member lists) into each blog document will become necessary to avoid `get()` calls in security rules.\n\n**QAPs (Rules are not Filters):** The chosen structure, with all blog posts in a single collection `blogs`, facilitates secure `list` operations. The security rules can easily control who can read and write blog posts based on authentication status, without needing to filter based on document content. If admin-only access is added, this can be controlled by a separate `/roles_admin/{uid}` collection. The absence of complex filtering requirements in the current MVP makes this simple structure optimal.\n\n**Future Considerations:**  If collaboration features are added later, consider a `members` map on the blog documents to control access, denormalizing the roles for authorization independence. For private drafts, create a separate collection such as `/users/{userId}/drafts` to segregate the data with different security postures."
+  }
+}
