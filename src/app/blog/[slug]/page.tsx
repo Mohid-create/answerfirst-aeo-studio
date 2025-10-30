@@ -20,11 +20,18 @@ export default function BlogDetailPage() {
   const [post, setPost] = useState<Blog | null | undefined>(undefined);
 
   useEffect(() => {
-    if (params.slug) {
+    // --- PROFESSIONAL FIX: ADDED NULL/UNDEFINED CHECK (Type Guard) ---
+    // This check resolves the 'params is possibly null' error
+    // by ensuring that both 'params' and 'params.slug' exist before using them.
+    if (params && params.slug) {
       const foundPost = getPostBySlug(params.slug);
       setPost(foundPost);
+    } else if (params === null) {
+      // In strict environments, if params is explicitly null, we set post to null to trigger notFound()
+      setPost(null);
     }
-  }, [params.slug]);
+    // --- END of FIX ---
+  }, [params]); // Depend on the entire params object for effect
 
   if (post === undefined) {
     // Still loading
@@ -82,8 +89,15 @@ export default function BlogDetailPage() {
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                priority
-                loading="lazy"
+                
+                // --- FIX: REMOVED CONFLICTING PROP ---
+                // We assume this is a hero image, which should load eagerly.
+                // If it was meant to load eagerly, 'priority' should be used.
+                // If it was meant to load lazily, we omit 'loading="lazy"' because 
+                // it is the default, and if another prop like 'priority' is added, it conflicts.
+                // Since the error message explicitly complains about the combination, 
+                // removing the manually added 'loading="lazy"' resolves the conflict.
+                // loading="lazy" // <-- THIS LINE WAS REMOVED
               />
             </motion.div>
 

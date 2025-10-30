@@ -14,6 +14,15 @@ import { SchemaPanel } from './schema-panel';
 import { CompetitorsPanel } from './competitors-panel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link as ScrollLink } from 'react-scroll';
+// 1. IMPORT LIVE DATA FUNCTION AND TYPE
+import { fetchCompetitorData, CompetitorResult } from '@/lib/fetchCompetitorData';
+
+
+// 2. DEFINE PROPS INTERFACE
+interface MainLayoutProps {
+    // This prop receives the initial live data fetched by the Server Component (DashboardPage)
+    initialCompetitorData: CompetitorResult[];
+}
 
 const sections = [
   { id: 'preview', title: 'Preview' },
@@ -23,23 +32,49 @@ const sections = [
   { id: 'competitors', title: 'Competitors' },
 ];
 
-export function MainLayout() {
+// 3. UPDATE FUNCTION SIGNATURE TO ACCEPT PROPS
+export function MainLayout({ initialCompetitorData }: MainLayoutProps) {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentContent, setCurrentContent] = useState('');
   const [currentQuery, setCurrentQuery] = useState('');
   const { toast } = useToast();
+  
+  // 4. ADD STATE FOR COMPETITOR RESULTS, INITIALIZED WITH THE PROP
+  const [competitorResults, setCompetitorResults] = useState<CompetitorResult[]>(
+    initialCompetitorData
+  );
 
   const handleAnalysis = async (data: { query: string; content: string }) => {
     setIsLoading(true);
     setAnalysisResult(null);
     setCurrentContent(data.content);
     setCurrentQuery(data.query);
+    
+    // Reset competitor data state while loading, so old results don't flash
+    setCompetitorResults([]);
 
+    // 5a. Run the primary analysis action
     const result = await getAnalysis(data);
+    
+    // 5b. Fetch the NEW live competitor data for the user's specific query
+    try {
+        const liveCompetitors = await fetchCompetitorData(data.query);
+        setCompetitorResults(liveCompetitors);
+    } catch (e) {
+        console.error("Failed to fetch live competitor data during analysis:", e);
+        toast({
+            variant: 'destructive',
+            title: 'Competitor Data Error',
+            description: 'Could not fetch live search results. Please check the SERP API key.',
+        });
+    }
 
     if (result.success) {
-      setAnalysisResult(result.data);
+      // --- FIX APPLIED HERE: Add explicit check for result.data to satisfy TypeScript ---
+      if (result.data) {
+        setAnalysisResult(result.data);
+      }
     } else {
       toast({
         variant: 'destructive',
@@ -120,7 +155,10 @@ export function MainLayout() {
                   />
                 </div>
                 <div id="competitors">
-                  <CompetitorsPanel isLoading={isLoading} />
+                  <CompetitorsPanel 
+                    isLoading={isLoading}
+                    competitors={competitorResults}
+                  />
                 </div>
               </motion.div>
             )}
