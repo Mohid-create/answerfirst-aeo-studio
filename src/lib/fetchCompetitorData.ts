@@ -4,9 +4,8 @@ export interface CompetitorResult {
   link: string;
   snippet: string;
   domain: string;
-  // Note: If you need to include the 'analysis' field used in competitors-panel.tsx, 
-  // you must add it here or in your global types file.
-  // analysis?: string; 
+  // CRITICAL FIX: The analysis property is necessary for the dashboard components.
+  analysis?: string; 
 }
 
 // --- 1. GET API KEY AND ENDPOINT ---
@@ -15,34 +14,17 @@ export interface CompetitorResult {
 const SERPER_API_KEY = process.env.SERPER_API_KEY;
 const SERPER_ENDPOINT = 'https://google.serper.dev/search';
 
-async function fetchMockCompetitorData(): Promise<CompetitorResult[]> {
-    console.log("🟡 SERPER_API_KEY not found. Falling back to mock data.");
-    // This is the absolute URL for the mock API route, which is needed for server-side fetching.
-    // We assume the app is running on localhost:9002 during local development.
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://' + (process.env.NEXT_PUBLIC_VERCEL_URL || 'your-production-domain.com')
-      : 'http://localhost:9002';
-      
-    try {
-        const response = await fetch(`${baseUrl}/api/competitors`, { cache: 'no-store' });
-        if (!response.ok) {
-            console.error("❌ Failed to fetch mock competitor data.");
-            return [];
-        }
-        const data = await response.json();
-        return data.results;
-    } catch (error) {
-        console.error("❌ Error fetching mock data:", error);
-        return [];
-    }
-}
-
+// The fetchMockCompetitorData function has been removed to simplify debugging.
 
 export async function fetchCompetitorData(query: string): Promise<CompetitorResult[]> {
-  // --- 2. CHECK FOR API KEY AND DECIDE FETCH STRATEGY ---
+  // --- 2. CRITICAL API KEY CHECK (Safety First) ---
   if (!SERPER_API_KEY) {
-    // If no API key, use the mock data function as a fallback.
-    return fetchMockCompetitorData();
+    // If no API key, log a clean error and return an empty array.
+    console.error(
+      "❌ FATAL ERROR: SERPER_API_KEY is missing in environment variables. Live fetching is disabled."
+    );
+    // On failure, return an empty array.
+    return []; 
   }
 
   // --- Proceed with live data fetching if API key is present ---
@@ -72,6 +54,7 @@ export async function fetchCompetitorData(query: string): Promise<CompetitorResu
       console.error(
         `❌ SERP API Request Failed: Status ${response.status}. Response Body: ${errorText.substring(0, 100)}...`
       );
+      // Depending on the status code, this might indicate an invalid key, but we'll re-throw for now.
       throw new Error(`Failed to fetch SERP data: HTTP ${response.status}`);
     }
 
@@ -86,7 +69,8 @@ export async function fetchCompetitorData(query: string): Promise<CompetitorResu
         title: result.title,
         link: result.link,
         snippet: result.snippet,
-        domain: new URL(result.link).hostname.replace('www.', ''), 
+        domain: new URL(result.link).hostname.replace('www.', ''),
+        // analysis field is correctly omitted here, as it is added by the AI action later.
       }));
 
     return results;

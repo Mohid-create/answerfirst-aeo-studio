@@ -14,7 +14,6 @@ import { SchemaPanel } from './schema-panel';
 import { CompetitorsPanel } from './competitors-panel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link as ScrollLink } from 'react-scroll';
-// 1. IMPORT LIVE DATA FUNCTION AND TYPE
 import { fetchCompetitorData, CompetitorResult } from '@/lib/fetchCompetitorData';
 
 
@@ -47,7 +46,8 @@ export function MainLayout({ initialCompetitorData }: MainLayoutProps) {
 
   const handleAnalysis = async (data: { query: string; content: string }) => {
     setIsLoading(true);
-    setAnalysisResult(null);
+    // CRITICAL: Reset the previous analysis result immediately at the start of the process
+    setAnalysisResult(null); 
     setCurrentContent(data.content);
     setCurrentQuery(data.query);
     
@@ -71,11 +71,17 @@ export function MainLayout({ initialCompetitorData }: MainLayoutProps) {
     }
 
     if (result.success) {
-      // --- FIX APPLIED HERE: Add explicit check for result.data to satisfy TypeScript ---
+      // --- Success Path ---
       if (result.data) {
         setAnalysisResult(result.data);
       }
     } else {
+      // --- Failure Path ---
+      // 🔥 CRITICAL FIX: Explicitly set analysisResult to null on failure. 
+      // This resolves the TypeScript error related to passing an unexpected type 
+      // (like the return type of a failed action) to the state setter.
+      setAnalysisResult(null); 
+
       toast({
         variant: 'destructive',
         title: 'Analysis Failed',
